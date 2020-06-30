@@ -10,61 +10,46 @@ import UIKit
 
 public struct GSImageInfo {
     
-    public enum ImageMode : Int {
-        case aspectFit  = 1
+    public enum ImageMode: Int {
+        case aspectFit = 1
         case aspectFill = 2
     }
-    
-    public let image     : UIImage
-    public let imageMode : ImageMode
-    public var imageHD   : URL?
-    
-    public var contentMode : UIView.ContentMode {
+
+    public let image: UIImage
+    public let imageMode: ImageMode
+
+    public var contentMode: UIView.ContentMode {
         return UIView.ContentMode(rawValue: imageMode.rawValue)!
     }
-    
+
     public init(image: UIImage, imageMode: ImageMode) {
-        self.image     = image
+        self.image = image
         self.imageMode = imageMode
     }
-    
-    public init(image: UIImage, imageMode: ImageMode, imageHD: URL?) {
-        self.init(image: image, imageMode: imageMode)
-        self.imageHD = imageHD
-    }
-    
+
     func calculate(rect: CGRect, origin: CGPoint? = nil, imageMode: ImageMode? = nil) -> CGRect {
         switch imageMode ?? self.imageMode {
-            
+
         case .aspectFit:
             return rect
-            
+
         case .aspectFill:
             let r = max(rect.size.width / image.size.width, rect.size.height / image.size.height)
             let w = image.size.width * r
             let h = image.size.height * r
-            
+
             return CGRect(
-                x      : origin?.x ?? rect.origin.x - (w - rect.width) / 2,
-                y      : origin?.y ?? rect.origin.y - (h - rect.height) / 2,
-                width  : w,
-                height : h
+                x: origin?.x ?? rect.origin.x - (w - rect.width) / 2,
+                y: origin?.y ?? rect.origin.y - (h - rect.height) / 2,
+                width: w,
+                height: h
             )
         }
     }
-    
-    func calculateMaximumZoomScale(_ size: CGSize) -> CGFloat {
-        return max(2, max(
-            image.size.width  / size.width,
-            image.size.height / size.height
-        ))
-    }
-    
 }
 
 open class GSTransitionInfo {
-    
-    open var duration: TimeInterval = 0.35
+    open var duration: TimeInterval = 0.16
     open var canSwipe: Bool         = true
     
     public init(fromView: UIView) {
@@ -79,13 +64,13 @@ open class GSTransitionInfo {
     
     fileprivate var fromRect: CGRect!
     fileprivate var convertedRect: CGRect!
-    
 }
 
 open class GSImageViewerController: UIViewController {
     
     public let imageView  = UIImageView()
     public let scrollView = UIScrollView()
+    public let closeButton = UIButton()
     
     public let imageInfo: GSImageInfo
     
@@ -98,11 +83,12 @@ open class GSImageViewerController: UIViewController {
             view.backgroundColor = backgroundColor
         }
     }
-    
-    open lazy var session: URLSession = {
-        let configuration = URLSessionConfiguration.ephemeral
-        return URLSession(configuration: configuration, delegate: nil, delegateQueue: OperationQueue.main)
-    }()
+
+    var orientations = UIInterfaceOrientationMask.all
+    open override var supportedInterfaceOrientations : UIInterfaceOrientationMask {
+        get { return self.orientations }
+        set { self.orientations = newValue }
+    }
     
     // MARK: Initialization
     
@@ -134,8 +120,8 @@ open class GSImageViewerController: UIViewController {
         }
     }
     
-    public convenience init(image: UIImage, imageMode: UIView.ContentMode, imageHD: URL?, fromView: UIView?) {
-        let imageInfo = GSImageInfo(image: image, imageMode: GSImageInfo.ImageMode(rawValue: imageMode.rawValue)!, imageHD: imageHD)
+    @objc public convenience init(image: UIImage, imageMode: UIView.ContentMode, fromView: UIView?) {
+        let imageInfo = GSImageInfo(image: image, imageMode: GSImageInfo.ImageMode(rawValue: imageMode.rawValue)!)
         
         if let fromView = fromView {
             self.init(imageInfo: imageInfo, transitionInfo: GSTransitionInfo(fromView: fromView))
@@ -156,8 +142,8 @@ open class GSImageViewerController: UIViewController {
         setupView()
         setupScrollView()
         setupImageView()
+        setupCloseButton()
         setupGesture()
-        setupImageHD()
         
         edgesForExtendedLayout = UIRectEdge()
         automaticallyAdjustsScrollViewInsets = false
@@ -166,11 +152,7 @@ open class GSImageViewerController: UIViewController {
     override open func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
         
-        imageView.frame = imageInfo.calculate(rect: view.bounds, origin: .zero)
-        
-        scrollView.frame = view.bounds
-        scrollView.contentSize = imageView.bounds.size
-        scrollView.maximumZoomScale = imageInfo.calculateMaximumZoomScale(scrollView.bounds.size)
+        scrollView.setZoomScale(1.0, animated: true)
     }
     
     // MARK: Setups
@@ -182,23 +164,66 @@ open class GSImageViewerController: UIViewController {
     fileprivate func setupScrollView() {
         scrollView.delegate = self
         scrollView.minimumZoomScale = 1.0
+        scrollView.maximumZoomScale = 2.0
         scrollView.showsHorizontalScrollIndicator = false
         scrollView.showsVerticalScrollIndicator = false
+
         view.addSubview(scrollView)
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+
+        if #available(iOS 9.0, *) {
+            scrollView.topAnchor.constraint(equalTo: view.topAnchor).isActive = true
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor).isActive = true
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor).isActive = true
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor).isActive = true
+        }
     }
     
     fileprivate func setupImageView() {
         imageView.image = imageInfo.image
         imageView.contentMode = .scaleAspectFit
+
         scrollView.addSubview(imageView)
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+
+        if #available(iOS 9.0, *) {
+            imageView.topAnchor.constraint(equalTo: scrollView.topAnchor).isActive = true
+            imageView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor).isActive = true
+            imageView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor).isActive = true
+            imageView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor).isActive = true
+            imageView.centerXAnchor.constraint(equalTo: scrollView.centerXAnchor).isActive = true
+            imageView.centerYAnchor.constraint(equalTo: scrollView.centerYAnchor).isActive = true
+        }
+    }
+
+    fileprivate func setupCloseButton() {
+        closeButton.setImage(UIImage(named: "icClose", in: Bundle(for: GSImageViewerController.self), compatibleWith: nil), for: .normal)
+
+        closeButton.addTarget(self, action: #selector(closeAction), for: .touchUpInside)
+
+
+        view.addSubview(closeButton)
+        closeButton.translatesAutoresizingMaskIntoConstraints = false
+
+        if #available(iOS 9.0, *) {
+            var top: CGFloat = 0.0
+
+            if #available(iOS 11.0, *) {
+                closeButton.topAnchor.constraint(equalToSystemSpacingBelow: view.safeAreaLayoutGuide.topAnchor, multiplier: 1.0).isActive = true
+                closeButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor).isActive = true
+            } else {
+                closeButton.topAnchor.constraint(equalTo: view.topAnchor, constant: top).isActive = true
+                closeButton.trailingAnchor.constraint(equalTo: view.trailingAnchor).isActive = true
+            }
+
+            closeButton.widthAnchor.constraint(equalToConstant: 48).isActive = true
+            closeButton.heightAnchor.constraint(equalToConstant: 48).isActive = true
+        }
     }
     
     fileprivate func setupGesture() {
-        let single = UITapGestureRecognizer(target: self, action: #selector(singleTap))
         let double = UITapGestureRecognizer(target: self, action: #selector(doubleTap(_:)))
         double.numberOfTapsRequired = 2
-        single.require(toFail: double)
-        scrollView.addGestureRecognizer(single)
         scrollView.addGestureRecognizer(double)
         
         if transitionInfo?.canSwipe == true {
@@ -207,27 +232,14 @@ open class GSImageViewerController: UIViewController {
             scrollView.addGestureRecognizer(pan)
         }
     }
-    
-    fileprivate func setupImageHD() {
-        guard let imageHD = imageInfo.imageHD else { return }
-            
-        let request = URLRequest(url: imageHD, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
-        let task = session.dataTask(with: request, completionHandler: { (data, response, error) -> Void in
-            guard let data = data else { return }
-            guard let image = UIImage(data: data) else { return }
-            self.imageView.image = image
-            self.view.layoutIfNeeded()
-        })
-        task.resume()
-    }
-    
-    // MARK: Gesture
-    
-    @objc fileprivate func singleTap() {
+
+    @objc func closeAction() {
         if navigationController == nil || (presentingViewController != nil && navigationController!.viewControllers.count <= 1) {
             dismiss(animated: true, completion: dismissCompletion)
         }
     }
+
+    // MARK: Gesture
     
     @objc fileprivate func doubleTap(_ gesture: UITapGestureRecognizer) {
         let point = gesture.location(in: scrollView)
@@ -286,16 +298,16 @@ open class GSImageViewerController: UIViewController {
             }
             
         default:
-            
+
             UIView.animate(withDuration: 0.3,
-                animations: {
-                    self.scrollView.center = self.panViewOrigin!
-                    self.view.backgroundColor = self.backgroundColor
-                },
-                completion: { _ in
-                    self.panViewOrigin = nil
-                    self.panViewAlpha  = 1.0
-                }
+                           animations: {
+                            self.scrollView.center = self.panViewOrigin!
+                            self.view.backgroundColor = self.backgroundColor
+            },
+                           completion: { _ in
+                            self.panViewOrigin = nil
+                            self.panViewAlpha  = 1.0
+            }
             )
             
         }
@@ -312,11 +324,9 @@ extension GSImageViewerController: UIScrollViewDelegate {
     public func scrollViewDidZoom(_ scrollView: UIScrollView) {
         imageView.frame = imageInfo.calculate(rect: CGRect(origin: .zero, size: scrollView.contentSize), origin: .zero)
     }
-    
 }
 
 extension GSImageViewerController: UIViewControllerTransitioningDelegate {
-    
     public func animationController(forPresented presented: UIViewController, presenting: UIViewController, source: UIViewController) -> UIViewControllerAnimatedTransitioning? {
         return GSImageViewerTransition(imageInfo: imageInfo, transitionInfo: transitionInfo!, transitionMode: .present)
     }
@@ -324,7 +334,6 @@ extension GSImageViewerController: UIViewControllerTransitioningDelegate {
     public func animationController(forDismissed dismissed: UIViewController) -> UIViewControllerAnimatedTransitioning? {
         return GSImageViewerTransition(imageInfo: imageInfo, transitionInfo: transitionInfo!, transitionMode: .dismiss)
     }
-    
 }
 
 class GSImageViewerTransition: NSObject, UIViewControllerAnimatedTransitioning {
@@ -353,23 +362,23 @@ class GSImageViewerTransition: NSObject, UIViewControllerAnimatedTransitioning {
         let containerView = transitionContext.containerView
         
         let tempBackground = UIView()
-            tempBackground.backgroundColor = UIColor.black
+        tempBackground.backgroundColor = UIColor.black
         
         let tempMask = UIView()
-            tempMask.backgroundColor = .black
-            tempMask.layer.cornerRadius = transitionInfo.fromView?.layer.cornerRadius ?? 0
-            tempMask.layer.masksToBounds = transitionInfo.fromView?.layer.masksToBounds ?? false
+        tempMask.backgroundColor = .black
+        tempMask.layer.cornerRadius = transitionInfo.fromView?.layer.cornerRadius ?? 0
+        tempMask.layer.masksToBounds = transitionInfo.fromView?.layer.masksToBounds ?? false
         
         let tempImage = UIImageView(image: imageInfo.image)
-            tempImage.contentMode = imageInfo.contentMode
-            tempImage.mask = tempMask
+        tempImage.contentMode = imageInfo.contentMode
+        tempImage.mask = tempMask
         
         containerView.addSubview(tempBackground)
         containerView.addSubview(tempImage)
         
         if transitionMode == .present {
             let imageViewer = transitionContext.viewController(forKey: UITransitionContextViewControllerKey.to) as! GSImageViewerController
-                imageViewer.view.layoutIfNeeded()
+            imageViewer.view.layoutIfNeeded()
             
             tempBackground.alpha = 0
             tempBackground.frame = imageViewer.view.bounds
@@ -389,10 +398,10 @@ class GSImageViewerTransition: NSObject, UIViewControllerAnimatedTransitioning {
                 transitionContext.completeTransition(true)
             })
         }
-        
+
         else if transitionMode == .dismiss {
             let imageViewer = transitionContext.viewController(forKey: UITransitionContextViewControllerKey.from) as! GSImageViewerController
-                imageViewer.view.removeFromSuperview()
+            imageViewer.view.removeFromSuperview()
             
             tempBackground.alpha = imageViewer.panViewAlpha
             tempBackground.frame = imageViewer.view.bounds
@@ -421,7 +430,6 @@ class GSImageViewerTransition: NSObject, UIViewControllerAnimatedTransitioning {
 }
 
 extension GSImageViewerController: UIGestureRecognizerDelegate {
-    
     public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         if let pan = gestureRecognizer as? UIPanGestureRecognizer {
             if scrollView.zoomScale != 1.0 {
@@ -431,7 +439,7 @@ extension GSImageViewerController: UIGestureRecognizerDelegate {
                 return false
             }
         }
+
         return true
     }
-    
 }
