@@ -197,10 +197,17 @@ open class GSImageViewerController: UIViewController {
     }
 
     fileprivate func setupCloseButton() {
-        closeButton.setImage(UIImage(named: "icClose", in: Bundle(for: GSImageViewerController.self), compatibleWith: nil), for: .normal)
+        let frameworkBundle = Bundle(for: GSImageViewerController.self)
+
+        guard let bundleURL = frameworkBundle.resourceURL?.appendingPathComponent("GSImageViewerController.bundle") else {
+            return
+        }
+
+        let image = UIImage(named: "icClose", in: Bundle(url: bundleURL), compatibleWith: nil)
+
+        closeButton.setImage(image, for: .normal)
 
         closeButton.addTarget(self, action: #selector(closeAction), for: .touchUpInside)
-
 
         view.addSubview(closeButton)
         closeButton.translatesAutoresizingMaskIntoConstraints = false
@@ -316,7 +323,6 @@ open class GSImageViewerController: UIViewController {
 }
 
 extension GSImageViewerController: UIScrollViewDelegate {
-    
     public func viewForZooming(in scrollView: UIScrollView) -> UIView? {
         return imageView
     }
