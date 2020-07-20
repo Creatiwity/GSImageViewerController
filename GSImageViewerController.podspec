@@ -12,10 +12,7 @@ Pod::Spec.new do |s|
   s.requires_arc = true
 
   s.source_files = 'GSImageViewerController'
-  s.resource_bundles = {
-    'GSImageViewerController' => ['GSImageViewerController/Resources/**'],
-  }
-
+  
   s.swift_version = "4.2"
   s.swift_versions = ['4.0', '4.2', '5.0']
 end

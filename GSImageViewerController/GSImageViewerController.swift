@@ -67,13 +67,14 @@ open class GSTransitionInfo {
 }
 
 open class GSImageViewerController: UIViewController {
-    
-    public let imageView  = UIImageView()
+
+    public let imageView = UIImageView()
     public let scrollView = UIScrollView()
     public let closeButton = UIButton()
     
     public let imageInfo: GSImageInfo
-    
+    public let closeImage: UIImage
+
     open var transitionInfo: GSTransitionInfo?
     
     open var dismissCompletion: (() -> Void)?
@@ -92,13 +93,14 @@ open class GSImageViewerController: UIViewController {
     
     // MARK: Initialization
     
-    public init(imageInfo: GSImageInfo) {
+    public init(imageInfo: GSImageInfo, closeImage: UIImage) {
         self.imageInfo = imageInfo
+        self.closeImage = closeImage
         super.init(nibName: nil, bundle: nil)
     }
     
-    public convenience init(imageInfo: GSImageInfo, transitionInfo: GSTransitionInfo) {
-        self.init(imageInfo: imageInfo)
+    public convenience init(imageInfo: GSImageInfo, transitionInfo: GSTransitionInfo, closeImage: UIImage) {
+        self.init(imageInfo: imageInfo, closeImage: closeImage)
         self.transitionInfo = transitionInfo
         
         if let fromView = transitionInfo.fromView, let referenceView = fromView.superview {
@@ -120,13 +122,13 @@ open class GSImageViewerController: UIViewController {
         }
     }
     
-    @objc public convenience init(image: UIImage, imageMode: UIView.ContentMode, fromView: UIView?) {
+    @objc public convenience init(image: UIImage, imageMode: UIView.ContentMode, fromView: UIView?, closeImage: UIImage) {
         let imageInfo = GSImageInfo(image: image, imageMode: GSImageInfo.ImageMode(rawValue: imageMode.rawValue)!)
         
         if let fromView = fromView {
-            self.init(imageInfo: imageInfo, transitionInfo: GSTransitionInfo(fromView: fromView))
+            self.init(imageInfo: imageInfo, transitionInfo: GSTransitionInfo(fromView: fromView), closeImage: closeImage)
         } else {
-            self.init(imageInfo: imageInfo)
+            self.init(imageInfo: imageInfo, closeImage: closeImage)
         }
     }
     
@@ -197,20 +199,13 @@ open class GSImageViewerController: UIViewController {
     }
 
     fileprivate func setupCloseButton() {
-        let frameworkBundle = Bundle(for: GSImageViewerController.self)
-
-        guard let bundleURL = frameworkBundle.resourceURL?.appendingPathComponent("GSImageViewerController.bundle") else {
-            return
-        }
-
-        let image = UIImage(named: "icClose", in: Bundle(url: bundleURL), compatibleWith: nil)
-
-        closeButton.setImage(image, for: .normal)
+        closeButton.setImage(closeImage, for: .normal)
 
         closeButton.addTarget(self, action: #selector(closeAction), for: .touchUpInside)
 
         view.addSubview(closeButton)
         closeButton.translatesAutoresizingMaskIntoConstraints = false
+        closeButton.tintColor = UIColor.white
 
         if #available(iOS 9.0, *) {
             var top: CGFloat = 0.0
